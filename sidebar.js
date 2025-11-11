@@ -154,6 +154,66 @@ attachmentBtns.forEach(btn => {
   });
 });
 
+// In your content script
+function getPageContext() {
+  // Get the main content of the page
+  // This is a simple implementation - you might need to customize this
+  // to better target the main content of different websites
+  const mainContent = document.body.innerText.substring(0, 10000); // Limit to 10K chars
+  
+  chrome.runtime.sendMessage(
+    { 
+      type: "GET_PAGE_CONTEXT", 
+      pageContent: mainContent 
+    },
+    response => {
+      if (response && response.suggestions && response.suggestions.length > 0) {
+        displaySuggestions(response.suggestions);
+      } else if (response && response.error) {
+        console.error("Error getting suggestions:", response.error);
+      }
+    }
+  );
+}
+
+function displaySuggestions(suggestions) {
+  // Implement UI to display the suggestions
+  // This will depend on your extension's UI design
+  console.log("Suggestions to display:", suggestions);
+  
+  // Example: Create a floating suggestions panel
+  const panel = document.createElement('div');
+  panel.className = 'quick-reply-suggestions';
+  panel.style.cssText = 'position:fixed; bottom:20px; right:20px; background:white; border:1px solid #ccc; border-radius:8px; padding:10px; z-index:10000; box-shadow:0 2px 10px rgba(0,0,0,0.2);';
+  
+  const header = document.createElement('div');
+  header.textContent = 'Quick Reply Suggestions';
+  header.style.cssText = 'font-weight:bold; margin-bottom:10px; padding-bottom:5px; border-bottom:1px solid #eee;';
+  panel.appendChild(header);
+  
+  suggestions.forEach(suggestion => {
+    const btn = document.createElement('button');
+    btn.textContent = suggestion;
+    btn.style.cssText = 'display:block; width:100%; text-align:left; margin:5px 0; padding:8px; border:none; background:#f5f5f5; border-radius:4px; cursor:pointer;';
+    btn.onclick = () => {
+      // Copy to clipboard or insert into active input field
+      navigator.clipboard.writeText(suggestion)
+        .then(() => {
+          btn.style.background = '#e6f7e6';
+          setTimeout(() => { btn.style.background = '#f5f5f5'; }, 500);
+        });
+    };
+    panel.appendChild(btn);
+  });
+  
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = '✕';
+  closeBtn.style.cssText = 'position:absolute; top:5px; right:5px; border:none; background:none; cursor:pointer;';
+  closeBtn.onclick = () => panel.remove();
+  panel.appendChild(closeBtn);
+  
+  document.body.appendChild(panel);
+}
 
 async function askAboutPage(question) {
   showTyping();
@@ -167,45 +227,57 @@ async function askAboutPage(question) {
     const pageContext = response?.context || "";
     const prompt = `Webpage content:\n${pageContext}\n\nUser question:\n${question}`;
     console.log("Sending prompt to background:", prompt);
+    
+
     chrome.runtime.sendMessage({ type: "RUN_AI_ACTION", action: "ask", text: prompt }, (res) => {
       hideTyping();
       appendMessage(res?.result || "No response", "bot");
     });
+
   });
 }
 
-
+// Update your generateSuggestedQuestions function
 async function generateSuggestedQuestions() {
   console.log("Generating suggested questions based on page context");
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
   // Get page content from content script
-  
   chrome.tabs.sendMessage(tab.id, { type: "GET_PAGE_CONTEXT" }, (response) => {
     if (chrome.runtime.lastError) {
       console.error("Error sending message to tab:", chrome.runtime.lastError);
       return;
     }
+    
     const pageContext = response?.context || "";
     if (!pageContext) return;
 
-    // Send to background.js for suggested questions
+    // Send to background.js for suggested questions using the new message type
     chrome.runtime.sendMessage(
-      { type: "RUN_AI_ACTION", action: "suggest_questions", text: pageContext },
-      (res) => {
+      { type: "GET_PAGE_CONTEXT", pageContent: pageContext },
+      (response) => {
         if (chrome.runtime.lastError) {
           console.error("Error sending message to background:", chrome.runtime.lastError);
           return;
         }
-        const questions = parseQuestions(res?.result);
-        if (questions?.length) showQuickReplies(questions);
+        
+        if (response && response.suggestions && response.suggestions.length > 0) {
+          showQuickReplies(response.suggestions);
+        } else {
+          // Fallback to the old method if needed
+          chrome.runtime.sendMessage(
+            { type: "RUN_AI_ACTION", action: "suggest_questions", text: pageContext },
+            (res) => {
+              const questions = parseQuestions(res?.result);
+              if (questions?.length) showQuickReplies(questions);
+            }
+          );
+        }
       }
     );
   });
-
-
-}
+} 
 
 // Parse JSON or fallback
 function parseQuestions(result) {

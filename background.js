@@ -1,30 +1,4 @@
-// Store analyzed forms
-const analyzedForms = {};
-
-// Common form patterns to help with identification
-const formPatterns = {
-  login: {
-    fields: ['username', 'email', 'password'],
-    keywords: ['login', 'sign in', 'signin', 'log in']
-  },
-  signup: {
-    fields: ['name', 'email', 'password', 'confirm', 'agree', 'terms'],
-    keywords: ['sign up', 'signup', 'register', 'create account', 'join']
-  },
-  contact: {
-    fields: ['name', 'email', 'message', 'subject', 'phone'],
-    keywords: ['contact', 'message', 'inquiry', 'get in touch']
-  },
-  checkout: {
-    fields: ['card', 'credit', 'payment', 'billing', 'shipping', 'address'],
-    keywords: ['checkout', 'payment', 'purchase', 'buy', 'order']
-  },
-  search: {
-    fields: ['search', 'query', 'q', 'keyword'],
-    keywords: ['search', 'find', 'lookup']
-  }
-};
-
+ 
 
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -41,63 +15,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         sendResponse({ result: `❌ Error: ${err.message}` });
       });
     return true; // keep channel open for async
-  }
-
-  if (request.type === "ANALYZE_FORM") {
-    analyzedForms[`${sender.tab.id}-${request.formData.formIndex}`] = request.formData;
-    console.log("[DEBUG] Form analyzed:", request.formData);
-    return true;
-  }
-
-  if (request.type === "ASSIST_FORM_FIELD") {
-    const formKey = `${sender.tab.id}-${request.formIndex}`;
-    const formData = analyzedForms[formKey];
-    
-    if (!formData) {
-      sendResponse({ error: "Form data not found" });
-      return true;
-    }
-    
-    const field = formData.fields[request.fieldIndex];
-    
-    if (!field) {
-      sendResponse({ error: "Field not found" });
-      return true;
-    }
-    
-    getFieldSuggestion(field, request.pageContext)
-      .then(suggestion => {
-        console.log("[DEBUG] AI suggestion for field:", suggestion);
-        sendResponse({ suggestion });
+  } 
+  // Add this new handler
+  if (request.type === "GET_PAGE_CONTEXT") {
+    generateReplySuggestions(request.pageContent)
+      .then(suggestions => {
+        console.log("[DEBUG] Generated reply suggestions:", suggestions);
+        sendResponse({ suggestions });
       })
       .catch(err => {
-        console.error("[DEBUG] Error getting field suggestion:", err);
-        sendResponse({ error: err.message });
+        console.error("[DEBUG] Error generating suggestions:", err);
+        sendResponse({ suggestions: [], error: err.message });
       });
-    
-    return true;
-  }
-
-  if (request.type === "ASSIST_ENTIRE_FORM") {
-    const formKey = `${sender.tab.id}-${request.formIndex}`;
-    const formData = analyzedForms[formKey];
-    
-    if (!formData) {
-      sendResponse({ error: "Form data not found" });
-      return true;
-    }
-    
-    getFormSuggestions(formData, request.pageContext)
-      .then(fieldValues => {
-        console.log("[DEBUG] AI suggestions for form:", fieldValues);
-        sendResponse({ fieldValues });
-      })
-      .catch(err => {
-        console.error("[DEBUG] Error getting form suggestions:", err);
-        sendResponse({ error: err.message });
-      });
-    
-    return true;
+    return true; // keep channel open for async
   }
 
 });
@@ -142,260 +72,20 @@ async function handleAction(action, text) {
       prompt = text;
   }
 
-  console.log("[DEBUG] Calling LLM:", provider, "with prompt:", prompt);
-
+  console.log("[DEBUG] Preparing to call LLM with prompt");
+  
   try {
-    let result = "No response";
-
-    if (provider === "gemini") {
-      const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/text-bison-001:generateText", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          prompt,
-          temperature: 0.7,
-          maxOutputTokens: 500
-        }),
-      });
-      const data = await res.json();
-      console.log("[DEBUG] Gemini API response:", data);
-      result = data?.candidates?.[0]?.content || data?.output?.[0]?.content || "No response from Gemini";
-
-    } else if (provider === "openai") {
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [{ role: "user", content: prompt }],
-        }),
-      });
-      const data = await res.json();
-      console.log("[DEBUG] OpenAI API response:", data);
-      result = data?.choices?.[0]?.message?.content || "No response from OpenAI";
-    }
-
+    // Use the callLLM function with appropriate parameters
+    const result = await callLLM(provider, apiKey, prompt, 0.7, 500);
     return result;
-
   } catch (e) {
-    console.error("[DEBUG] Error calling LLM:", e);
-    return `❌ Error calling ${provider}: ${e.message}`;
+    console.error("[DEBUG] Error in handleAction:", e);
+    return `❌ ${e.message}`;
   }
 }
 
 
-// form background
  
-/**
- * Gets AI suggestion for a single form field
- */
-async function getFieldSuggestion(field, pageContext) {
-  const storage = await new Promise(resolve =>
-    chrome.storage.sync.get(["provider", "apiKey", "formDataSource", "userProfile"], resolve)
-  );
-  const provider = storage.provider || "gemini";
-  const apiKey = storage.apiKey || "";
-  const formDataSource = storage.formDataSource || "both";
-  const userProfile = storage.userProfile || {};
-  
-  // Format user profile for the prompt if needed
-  let userProfileText = "";
-  if (formDataSource === "user-profile" || formDataSource === "both") {
-    userProfileText = `
-USER PROFILE:
-Full Name: ${userProfile.name || 'Not provided'}
-Email: ${userProfile.email || 'Not provided'}
-Phone: ${userProfile.phone || 'Not provided'}
-Address: ${userProfile.address || 'Not provided'}
-Company: ${userProfile.company || 'Not provided'}
-Job Title: ${userProfile.jobTitle || 'Not provided'}
-`;
-  }
-
-  const prompt = `
-You are an AI assistant helping a user fill out a form field.
-
-FIELD INFORMATION:
-Type: ${field.type}
-Label: ${field.label || 'Not provided'}
-Name: ${field.name || 'Not provided'}
-Placeholder: ${field.placeholder || 'Not provided'}
-Required: ${field.required ? 'Yes' : 'No'}
-${field.options && field.options.length ? `Options: ${field.options.join(', ')}` : ''}
-
-${userProfileText}
-
-${formDataSource !== "user-profile" ? `
-PAGE CONTEXT:
-Title: ${pageContext.title}
-URL: ${pageContext.url}
-Content: ${pageContext.content.substring(0, 500)}...
-` : ''}
-
-Based on the field information ${formDataSource === "user-profile" ? 'and user profile' : formDataSource === "page-only" ? 'and page context' : 'user profile, and page context'}, provide a single appropriate value for this field.
-
-If the field seems to match a user profile field (like name, email, etc.) and user profile data is available, prefer using that data.
-
-Do not include explanations, just return the suggested value.
-`;
-
-  const result = await callLLM(provider, apiKey, prompt, 0.2, 100);
-  return result.replace(/^["']|["']$/g, '').trim();
-}
-
-/**
- * Gets AI suggestions for all fields in a form
- */
-async function getFormSuggestions(formData, pageContext) {
-  const storage = await new Promise(resolve =>
-    chrome.storage.sync.get(["provider", "apiKey", "formDataSource", "userProfile"], resolve)
-  );
-  const provider = storage.provider || "gemini";
-  const apiKey = storage.apiKey || "";
-  const formDataSource = storage.formDataSource || "both";
-  const userProfile = storage.userProfile || {};
-  
-  // Format user profile for the prompt if needed
-  let userProfileText = "";
-  if (formDataSource === "user-profile" || formDataSource === "both") {
-    userProfileText = `
-USER PROFILE:
-Full Name: ${userProfile.name || 'Not provided'}
-Email: ${userProfile.email || 'Not provided'}
-Phone: ${userProfile.phone || 'Not provided'}
-Address: ${userProfile.address || 'Not provided'}
-Company: ${userProfile.company || 'Not provided'}
-Job Title: ${userProfile.jobTitle || 'Not provided'}
-`;
-  }
-
-  // Format fields for the prompt
-  const fieldsDescription = formData.fields.map((field, index) => `
-Field ${index + 1}:
-  ID: ${field.id || 'Not provided'}
-  Name: ${field.name || 'Not provided'}
-  Type: ${field.type}
-  Label: ${field.label || 'Not provided'}
-  Placeholder: ${field.placeholder || 'Not provided'}
-  Required: ${field.required ? 'Yes' : 'No'}
-  ${field.options && field.options.length ? `Options: ${field.options.join(', ')}` : ''}
-`).join('');
-
-  // Detect form type
-  const formType = detectFormType(formData, pageContext);
-  
-  const prompt = `
-You are an AI assistant helping a user fill out a form.
-
-FORM INFORMATION:
-Action: ${formData.action}
-Method: ${formData.method}
-Number of fields: ${formData.fields.length}
-Detected form type: ${formType}
-
-FIELDS:
-${fieldsDescription}
-
-${userProfileText}
-
-${formDataSource !== "user-profile" ? `
-PAGE CONTEXT:
-Title: ${pageContext.title}
-URL: ${pageContext.url}
-Content: ${pageContext.content.substring(0, 500)}...
-` : ''}
-
-Based on the form information ${formDataSource === "user-profile" ? 'and user profile' : formDataSource === "page-only" ? 'and page context' : 'user profile, and page context'}, provide appropriate values for each field.
-
-This appears to be a ${formType} form. Adjust your suggestions accordingly.
-
-If a field seems to match a user profile field (like name, email, etc.) and user profile data is available, prefer using that data.
-
-For login forms, suggest a username but use "********" for passwords.
-For signup forms, suggest strong passwords like "StrongP@ss123!" but don't use real personal data if not in the user profile.
-For payment forms, use "4111 1111 1111 1111" for credit card numbers and "123" for CVV codes.
-
-Return your response as a JSON array with this format:
-[
-  {
-    "id": "field-id",
-    "name": "field-name",
-    "value": "suggested value"
-  },
-  ...
-]
-
-Only include id and name if they exist in the original field data.
-`;
-
-  const result = await callLLM(provider, apiKey, prompt, 0.2, 1000);
-
-  // Extract JSON from the response
-  const jsonMatch = result.match(/\[[\s\S]*\]/);
-  if (jsonMatch) {
-    try {
-      return JSON.parse(jsonMatch[0]);
-    } catch (e) {
-      console.error("[DEBUG] Error parsing JSON from LLM response:", e);
-      return [];
-    }
-  }
-  
-  return [];
-}
-
-/**
- * Detects the type of form based on its fields and page context
- */
-function detectFormType(formData, pageContext) {
-  const scores = {};
-  
-  for (const [type, pattern] of Object.entries(formPatterns)) {
-    scores[type] = 0;
-    
-    // Check fields
-    formData.fields.forEach(field => {
-      const fieldName = (field.name || '').toLowerCase();
-      const fieldId = (field.id || '').toLowerCase();
-      const fieldLabel = (field.label || '').toLowerCase();
-      
-      pattern.fields.forEach(patternField => {
-        if (fieldName.includes(patternField) || 
-            fieldId.includes(patternField) || 
-            fieldLabel.includes(patternField)) {
-          scores[type] += 1;
-        }
-      });
-    });
-    
-    // Check page context for keywords
-    pattern.keywords.forEach(keyword => {
-      if (pageContext.title.toLowerCase().includes(keyword) || 
-          pageContext.content.toLowerCase().includes(keyword)) {
-        scores[type] += 0.5;
-      }
-    });
-  }
-  
-  // Find the type with the highest score
-  let maxScore = 0;
-  let detectedType = 'unknown';
-  
-  for (const [type, score] of Object.entries(scores)) {
-    if (score > maxScore) {
-      maxScore = score;
-      detectedType = type;
-    }
-  }
-  
-  return maxScore >= 2 ? detectedType : 'unknown';
-}
 
 /**
  * Generic function to call LLM APIs
@@ -405,6 +95,17 @@ function detectFormType(formData, pageContext) {
  */
 async function callLLM(provider, apiKey, prompt, temperature = 0.7, maxTokens = 500) {
   console.log("[DEBUG] Calling LLM:", provider, "with prompt length:", prompt.length);
+
+  // Validate API key
+  if (!apiKey) {
+    throw new Error(`No API key provided for ${provider}. Please add your API key in the extension settings.`);
+  }
+
+  // Check input size
+  if (prompt.length > 100000) {
+    console.warn("[DEBUG] Very large prompt detected, truncating...");
+    prompt = prompt.substring(0, 100000) + "... [content truncated due to length]";
+  }
 
   try {
     // Check cache first
@@ -420,49 +121,84 @@ async function callLLM(provider, apiKey, prompt, temperature = 0.7, maxTokens = 
     let result = "No response";
 
     if (provider === "gemini") {
-      const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/text-bison-001:generateText", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          prompt,
-          temperature,
-          maxOutputTokens: maxTokens
-        }),
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
       
-      if (!res.ok) {
-        throw new Error(`Gemini API error: ${res.status} ${res.statusText}`);
+      try {
+        const res = await fetchWithRetry(
+          "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent", 
+          {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: {
+                temperature,
+                maxOutputTokens: maxTokens
+              }
+            }),
+            signal: controller.signal
+          }
+        );
+        
+        clearTimeout(timeoutId);
+        
+        if (!res.ok) {
+          throw new Error(`Gemini API error: ${res.status} ${res.statusText}`);
+        }
+        
+        const data = await res.json();
+        console.log("[DEBUG] Gemini API response:", data);
+        result = data?.candidates?.[0]?.content?.parts?.[0]?.text || "No response from Gemini";
+      } catch (e) {
+        clearTimeout(timeoutId);
+        if (e.name === 'AbortError') {
+          throw new Error('Request timed out after 30 seconds');
+        }
+        throw e;
       }
-      
-      const data = await res.json();
-      console.log("[DEBUG] Gemini API response:", data);
-      result = data?.candidates?.[0]?.content || data?.output?.[0]?.content || "No response from Gemini";
-
     } else if (provider === "openai") {
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [{ role: "user", content: prompt }],
-          temperature,
-          max_tokens: maxTokens
-        }),
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
       
-      if (!res.ok) {
-        throw new Error(`OpenAI API error: ${res.status} ${res.statusText}`);
+      try {
+        const res = await fetchWithRetry(
+          "https://api.openai.com/v1/chat/completions", 
+          {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "gpt-4o-mini",
+              messages: [{ role: "user", content: prompt }],
+              temperature,
+              max_tokens: maxTokens
+            }),
+            signal: controller.signal
+          }
+        );
+        
+        clearTimeout(timeoutId);
+        
+        if (!res.ok) {
+          throw new Error(`OpenAI API error: ${res.status} ${res.statusText}`);
+        }
+        
+        const data = await res.json();
+        console.log("[DEBUG] OpenAI API response:", data);
+        result = data?.choices?.[0]?.message?.content || "No response from OpenAI";
+      } catch (e) {
+        clearTimeout(timeoutId);
+        if (e.name === 'AbortError') {
+          throw new Error('Request timed out after 30 seconds');
+        }
+        throw e;
       }
-      
-      const data = await res.json();
-      console.log("[DEBUG] OpenAI API response:", data);
-      result = data?.choices?.[0]?.message?.content || "No response from OpenAI";
     }
 
     // Cache the successful response
@@ -470,10 +206,86 @@ async function callLLM(provider, apiKey, prompt, temperature = 0.7, maxTokens = 
     
     return result;
 
-   } catch (e) {
+  } catch (e) {
     console.error("[DEBUG] Error calling LLM:", e);
     throw new Error(`Error calling ${provider}: ${e.message}`);
   }
+}
+
+
+/**
+ * Generate quick reply suggestions based on page content
+ */
+async function generateReplySuggestions(pageContent) {
+  console.log("[DEBUG] Generating reply suggestions from page content");
+  
+  // Load user configuration
+  const storage = await new Promise(resolve =>
+    chrome.storage.sync.get(["provider", "apiKey", "features"], resolve)
+  );
+  const provider = storage.provider || "gemini";
+  const apiKey = storage.apiKey || "";
+  
+  // Create a prompt for generating reply suggestions
+  const prompt = `
+Based on the following content, generate 3-5 short, helpful reply suggestions that a user might want to use in a conversation about this topic. 
+Each suggestion should be concise (under 140 characters) and ready to use.
+Return ONLY a JSON array of strings with no additional text.
+
+Content:
+${pageContent.substring(0, 5000)}
+`;
+
+  try {
+    const result = await callLLM(provider, apiKey, prompt, 0.7, 300);
+    
+    // Try to parse the result as JSON
+    try {
+      // Handle cases where the model might add explanatory text before/after the JSON
+      const jsonMatch = result.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        const suggestions = JSON.parse(jsonMatch[0]);
+        return Array.isArray(suggestions) ? suggestions : [];
+      }
+      return [];
+    } catch (parseError) {
+      console.error("[DEBUG] Failed to parse suggestions as JSON:", parseError);
+      // Fallback: try to extract suggestions line by line if JSON parsing fails
+      return result
+        .split('\n')
+        .filter(line => line.trim().startsWith('"') || line.trim().startsWith('-'))
+        .map(line => line.replace(/^["-]\s*/, '').replace(/"[,.]?$/, ''))
+        .filter(line => line.length > 0 && line.length < 140)
+        .slice(0, 5);
+    }
+  } catch (e) {
+    console.error("[DEBUG] Error generating suggestions:", e);
+    throw new Error(`Failed to generate suggestions: ${e.message}`);
+  }
+}
+
+
+async function fetchWithRetry(url, options, maxRetries = 3) {
+  let lastError;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fetch(url, options);
+    } catch (err) {
+      console.log(`Attempt ${attempt + 1} failed:`, err);
+      lastError = err;
+      
+      // Only retry on network errors, not on 4xx responses
+      if (!err.message.includes('fetch failed') && !err.message.includes('network')) {
+        throw err;
+      }
+      
+      // Wait before retrying (exponential backoff)
+      await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+    }
+  }
+  
+  throw lastError;
 }
 
 // Rate limiting implementation
@@ -549,25 +361,4 @@ setInterval(() => {
 }, 5 * 60 * 1000); // Run every 5 minutes
 
 
-
-// Clean up form data when tabs are closed to prevent memory leaks
-chrome.tabs.onRemoved.addListener((tabId) => {
-  // Remove all form data for this tab
-  Object.keys(analyzedForms).forEach(key => {
-    if (key.startsWith(`${tabId}-`)) {
-      delete analyzedForms[key];
-      console.log("[DEBUG] Cleaned up form data for closed tab:", tabId);
-    }
-  });
-});
  
-// Add timestamp to form data when analyzing
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.type === "ANALYZE_FORM") {
-    // Add timestamp for cleanup purposes
-    request.formData.timestamp = Date.now();
-    analyzedForms[`${sender.tab.id}-${request.formData.formIndex}`] = request.formData;
-    console.log("[DEBUG] Form analyzed with timestamp:", request.formData);
-    return true;
-  }
-});
