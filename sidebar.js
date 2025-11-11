@@ -51,12 +51,20 @@ quickReplyBtns.forEach(btn => {
   });
 });
 
-function appendMessage(text, sender) {
-  const div = document.createElement("div");
-  div.className = `message ${sender}`;
-  div.innerHTML = sender === "bot" ? marked.parse(text) : text; // render Markdown for bot
+// function appendMessage(text, sender) {
+//   const div = document.createElement("div");
+//   div.className = `message ${sender}`;
+//   div.innerHTML = sender === "bot" ? marked.parse(text) : text; // render Markdown for bot
+//   chatContainer.appendChild(div);
+//   chatContainer.scrollTop = chatContainer.scrollHeight;
+// }
+
+function appendMessage(text, sender){
+  const div=document.createElement("div");
+  div.className=`message ${sender}`;
+  div.textContent=text; // safe default (see note above for Markdown)
   chatContainer.appendChild(div);
-  chatContainer.scrollTop = chatContainer.scrollHeight;
+  chatContainer.scrollTop=chatContainer.scrollHeight;
 }
 
 let typingIndicator;
@@ -215,69 +223,129 @@ function displaySuggestions(suggestions) {
   document.body.appendChild(panel);
 }
 
-async function askAboutPage(question) {
+async function askAboutPage(question){
+  if (typingIndicator) hideTyping();
   showTyping();
-  console.log("Asking about page:", question);
-
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  console.log("Active tab:", tab);
-
-  // Get page content from content script
-  chrome.tabs.sendMessage(tab.id, { type: "GET_PAGE_CONTEXT" }, (response) => {
-    const pageContext = response?.context || "";
-    const prompt = `Webpage content:\n${pageContext}\n\nUser question:\n${question}`;
-    console.log("Sending prompt to background:", prompt);
-    
-
-    chrome.runtime.sendMessage({ type: "RUN_AI_ACTION", action: "ask", text: prompt }, (res) => {
-      hideTyping();
-      appendMessage(res?.result || "No response", "bot");
+  try{
+    const [tab]=await chrome.tabs.query({active:true,currentWindow:true});
+    if(!tab?.id) throw new Error("No active tab");
+    chrome.tabs.sendMessage(tab.id,{type:"GET_PAGE_CONTEXT"},(response)=>{
+      if (chrome.runtime.lastError){
+        hideTyping();
+        appendMessage("I couldn't read this page. Try reloading or check permissions.", "bot");
+        console.error(chrome.runtime.lastError);
+        return;
+      }
+      const pageContext=response?.context||"";
+      const prompt=`Webpage content:\n${pageContext}\n\nUser question:\n${question}`;
+      chrome.runtime.sendMessage({type:"RUN_AI_ACTION",action:"ask",text:prompt},(res)=>{
+        hideTyping();
+        appendMessage(res?.result||"No response","bot");
+      });
     });
-
-  });
+  }catch(e){
+    hideTyping();
+    appendMessage(`❌ ${e.message}`,"bot");
+  }
 }
 
 // Update your generateSuggestedQuestions function
-async function generateSuggestedQuestions() {
+ async function generateSuggestedQuestions() {
   console.log("Generating suggested questions based on page context");
 
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    console.log("Active tab for suggestions:", tab);
+    if (!tab || !tab.id) {
+      console.error("No active tab found");
+      return;
+    }
 
-  // Get page content from content script
-  chrome.tabs.sendMessage(tab.id, { type: "GET_PAGE_CONTEXT" }, (response) => {
+    // First check if content script is ready
+    checkContentScriptStatus(tab.id, (isReady) => {
+      if (!isReady) {
+        console.log("Content script not ready, injecting it now");
+        injectContentScript(tab.id, () => {
+          // Try again after injection
+          setTimeout(() => getPageContextFromTab(tab.id), 500);
+        });
+      } else {
+        getPageContextFromTab(tab.id);
+      }
+    });
+  } catch (error) {
+    console.error("Error in generateSuggestedQuestions:", error);
+  }
+}
+
+// Check if content script is ready
+function checkContentScriptStatus(tabId, callback) {
+  chrome.tabs.sendMessage(tabId, { type: "PING" }, response => {
+    const isReady = !chrome.runtime.lastError && response && response.status === "ready";
+    callback(isReady);
+  });
+}
+
+// Inject content script if not already present
+function injectContentScript(tabId, callback) {
+  chrome.scripting.executeScript({
+    target: { tabId: tabId },
+    files: ["content.js"]
+  }).then(() => {
+    console.log("Content script injected successfully");
+    callback();
+  }).catch(err => {
+    console.error("Error injecting content script:", err);
+  });
+}
+
+// Get page context once we know content script is ready
+function getPageContextFromTab(tabId) {
+  chrome.tabs.sendMessage(tabId, { type: "GET_PAGE_CONTEXT" }, (response) => {
     if (chrome.runtime.lastError) {
-      console.error("Error sending message to tab:", chrome.runtime.lastError);
+      console.error("Error getting page context:", chrome.runtime.lastError);
+      showQuickReplies(["Tell me about this page", "What's the main point here?", "Summarize this content"]);
       return;
     }
     
     const pageContext = response?.context || "";
-    if (!pageContext) return;
+    if (!pageContext) {
+      console.log("No page context received, using fallback suggestions");
+      showQuickReplies(["Tell me about this page", "What's the main point here?", "Summarize this content"]);
+      return;
+    }
 
-    // Send to background.js for suggested questions using the new message type
+    // Send to background.js for suggested questions
     chrome.runtime.sendMessage(
       { type: "GET_PAGE_CONTEXT", pageContent: pageContext },
       (response) => {
         if (chrome.runtime.lastError) {
-          console.error("Error sending message to background:", chrome.runtime.lastError);
+          console.error("Error getting suggestions from background:", chrome.runtime.lastError);
+          showQuickReplies(["Tell me about this page", "What's the main point here?", "Summarize this content"]);
           return;
         }
         
         if (response && response.suggestions && response.suggestions.length > 0) {
           showQuickReplies(response.suggestions);
         } else {
-          // Fallback to the old method if needed
+          // Fallback to the old method
           chrome.runtime.sendMessage(
             { type: "RUN_AI_ACTION", action: "suggest_questions", text: pageContext },
             (res) => {
               const questions = parseQuestions(res?.result);
-              if (questions?.length) showQuickReplies(questions);
+              if (questions?.length) {
+                showQuickReplies(questions);
+              } else {
+                showQuickReplies(["Tell me about this page", "What's the main point here?", "Summarize this content"]);
+              }
             }
           );
         }
       }
     );
   });
-} 
+}
+
 
 // Parse JSON or fallback
 function parseQuestions(result) {
@@ -312,7 +380,22 @@ function showQuickReplies(options) {
     });
     container.appendChild(btn);
   });
+
+   // 👇 scroll to beginning
+  container.scrollTo({ left: 0, behavior: 'smooth' });
 }
+
+
+const quickWrapper = document.querySelector('.quick-reply-wrapper');
+const scrollLeftBtn = document.getElementById('scrollLeftBtn');
+const scrollRightBtn = document.getElementById('scrollRightBtn');
+
+scrollLeftBtn.onclick = () => {
+  quickWrapper.scrollBy({ left: -150, behavior: 'smooth' });
+};
+scrollRightBtn.onclick = () => {
+  quickWrapper.scrollBy({ left: 150, behavior: 'smooth' });
+};
 
 window.addEventListener('DOMContentLoaded', () => {
   generateSuggestedQuestions();

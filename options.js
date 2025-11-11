@@ -1,9 +1,7 @@
 // Add to your options.js
 
 // Form assistant settings
-const enableFormAssistant = document.getElementById('enable-form-assistant');
 const showGlobalButton = document.getElementById('show-global-button');
-const showFieldButtons = document.getElementById('show-field-buttons');
 const formDataSource = document.getElementById('form-data-source');
 const editUserProfile = document.getElementById('edit-user-profile');
 const userProfileModal = document.getElementById('user-profile-modal');
@@ -12,19 +10,13 @@ const saveProfile = document.getElementById('save-profile');
 
 // Load form assistant settings
 chrome.storage.sync.get([
-  'enableFormAssistant', 
-  'showGlobalButton', 
-  'showFieldButtons',
+  
+  'showGlobalButton',  
   'formDataSource',
   'userProfile'
 ], (result) => {
-  enableFormAssistant.checked = result.enableFormAssistant !== false;
-  showGlobalButton.checked = result.showGlobalButton !== false;
-  showFieldButtons.checked = result.showFieldButtons !== false;
-  formDataSource.value = result.formDataSource || 'both';
-  
-  // Load user profile data
-   
+   showGlobalButton.checked = result.showGlobalButton !== false;
+   formDataSource.value = result.formDataSource || 'both';
 });
 
 // Save form assistant settings

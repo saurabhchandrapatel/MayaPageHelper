@@ -1,9 +1,11 @@
  
 
+function hash(str){let h=0;for(let i=0;i<str.length;i++)h=((h<<5)-h+str.charCodeAt(i))|0;return h>>>0;}
+function getCacheKey(prompt, provider){ return `${provider}:${hash(prompt)}:${prompt.length}`; }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log("[DEBUG] Background received message:", request);
-
+  
   if (request.type === "RUN_AI_ACTION") {
     handleAction(request.action, request.text)
       .then(result => {
@@ -123,44 +125,30 @@ async function callLLM(provider, apiKey, prompt, temperature = 0.7, maxTokens = 
     if (provider === "gemini") {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000);
-      
       try {
         const res = await fetchWithRetry(
-          "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent", 
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${encodeURIComponent(apiKey)}`,
           {
             method: "POST",
-            headers: {
-              "Authorization": `Bearer ${apiKey}`,
-              "Content-Type": "application/json",
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: {
-                temperature,
-                maxOutputTokens: maxTokens
-              }
+              generationConfig: { temperature, maxOutputTokens: maxTokens }
             }),
             signal: controller.signal
           }
         );
-        
         clearTimeout(timeoutId);
-        
-        if (!res.ok) {
-          throw new Error(`Gemini API error: ${res.status} ${res.statusText}`);
-        }
-        
+        if (!res.ok) throw new Error(`Gemini API error: ${res.status} ${res.statusText}`);
         const data = await res.json();
-        console.log("[DEBUG] Gemini API response:", data);
         result = data?.candidates?.[0]?.content?.parts?.[0]?.text || "No response from Gemini";
       } catch (e) {
         clearTimeout(timeoutId);
-        if (e.name === 'AbortError') {
-          throw new Error('Request timed out after 30 seconds');
-        }
+        if (e.name === 'AbortError') throw new Error('Request timed out after 30 seconds');
         throw e;
       }
-    } else if (provider === "openai") {
+    }
+    else if (provider === "openai") {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000);
       

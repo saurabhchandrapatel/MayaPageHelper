@@ -1,13 +1,17 @@
 {
   "manifest_version": 3,
   "name": "Orange Upskill Assistant",
+  "short_name": "AI Assistant",
   "version": "1.0",
+  "minimum_chrome_version": "88",
   "description": "Use your favorite AI (ChatGPT, Gemini, Ollama...) anywhere on the web.",
   "permissions": [
     "storage",
-    "activeTab",
     "scripting",
-    "contextMenus"
+    "activeTab",
+    "tabs",
+    "clipboardWrite",
+    "clipboardRead"
   ],
   "host_permissions": ["https://*/*", "http://*/*"], 
   "background": {
@@ -15,25 +19,32 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_icon": "icons/icon128.png"
+    "default_icon": {
+      "16": "icons/icon128.png",
+      "48": "icons/icon128.png",
+      "128": "icons/icon128.png"
+    }
   },
   "options_page": "options.html",
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["libs/marked.min.js", "floatingBubble.js", "content.js", "form-assistant.js"],
+      "js": ["libs/marked.min.js", "floatingBubble.js", "content.js"],
       "css": ["styles.css"],
       "run_at": "document_idle"
-
     }
   ],
+  "side_panel": { "default_path": "sidebar.html" },
   "web_accessible_resources": [
     {
         "resources": ["sidebar.html", "sidebar.css", "icons/icon128.png"],
         "matches": ["<all_urls>"]
     }
     ],
+  
   "icons": {
+    "16": "icons/icon128.png",
+    "48": "icons/icon128.png",
     "128": "icons/icon128.png"
   }
 }

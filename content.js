@@ -74,6 +74,14 @@
   
   
 
+  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse)=>{
+  if (msg.type==="PING") { sendResponse({status:"ready"}); return true; }
+    if (msg.type==="GET_PAGE_CONTEXT") {
+      const text = document.body?.innerText || "";
+      sendResponse({ context: text.slice(0, 10000) });
+      return true;
+    }
+  });
 
   // === Selection Handling ===
   document.addEventListener("selectionchange", () => {
@@ -107,9 +115,9 @@
       });
       shadow.appendChild(ui.toolbar);
     }
-    const top = rect.top + window.scrollY - ui.toolbar.offsetHeight - 8;
+    const top = Math.max(rect.top + window.scrollY - ui.toolbar.offsetHeight - 8, 8);
     const left = Math.min(rect.left + window.scrollX, window.innerWidth - ui.toolbar.offsetWidth - 8);
-    ui.toolbar.style.top = `${Math.max(top, 8)}px`;
+    ui.toolbar.style.top = `${top}px`;
     ui.toolbar.style.left = `${Math.max(left, 8)}px`;
   }
   // function removeToolbar() { ui?.toolbar?.remove(); ui.toolbar = null; }
@@ -133,6 +141,7 @@
 
   // === Result Bubble + Voice ===
   function showResultBubble(result, action = "general") {
+    const {DOMPurify} = required("dompurify")
     const { shadow } = ensureUIRoot();
     removeBubble();
 
@@ -175,46 +184,41 @@
     });
   }
 
-  function removeBubble() { ui?.bubble?.remove(); ui.bubble = null; }
+  function removeBubble() {
+    stopVoice();
+    ui?.bubble?.remove?.();
+    ui.bubble = null;
+  }
 
   // === Voice Playback Management ===
   function startVoice(text, controls) {
-    stopVoice(); // stop any existing playback
-    currentUtterance = new SpeechSynthesisUtterance(text);
-    currentUtterance.pitch = 1;
-    currentUtterance.rate = 1;
-    if (isMuted) currentUtterance.volume = 0;
-    window.speechSynthesis.speak(currentUtterance);
-
+    stopVoice();
+    setTimeout(() => {
+      currentUtterance = new SpeechSynthesisUtterance(text);
+      currentUtterance.pitch = 1;
+      currentUtterance.rate = 1;
+      currentUtterance.volume = isMuted ? 0 : 1;
+      window.speechSynthesis.speak(currentUtterance);
+      attachVoiceControls(controls);
+    }, 150);
+  }
+  function attachVoiceControls(controls) {
     controls.querySelectorAll("button").forEach(btn => {
-      btn.onclick = () => {
-        const cmd = btn.dataset.vc;
-        switch (cmd) {
-          case "pause":
-            if (!isPaused) {
-              window.speechSynthesis.pause();
-              isPaused = true;
-            }
-            break;
-          case "resume":
-            if (isPaused) {
-              window.speechSynthesis.resume();
-              isPaused = false;
-            }
-            break;
-          case "mute":
-            isMuted = !isMuted;
-            btn.textContent = isMuted ? "🔈 Unmute" : "🔇 Mute";
-            if (currentUtterance) currentUtterance.volume = isMuted ? 0 : 1;
-            break;
-          case "stop":
-            stopVoice();
-            break;
-        }
-      };
+      btn.onclick = () => handleVoiceControl(btn.dataset.vc, btn);
     });
   }
-
+  function handleVoiceControl(cmd, btn) {
+    switch (cmd) {
+      case "pause": window.speechSynthesis.pause(); isPaused = true; break;
+      case "resume": window.speechSynthesis.resume(); isPaused = false; break;
+      case "mute":
+        isMuted = !isMuted;
+        btn.textContent = isMuted ? "🔈 Unmute" : "🔇 Mute";
+        if (currentUtterance) currentUtterance.volume = isMuted ? 0 : 1;
+        break;
+      case "stop": stopVoice(); break;
+    }
+  }
   function stopVoice() {
     try { window.speechSynthesis.cancel(); } catch {}
     currentUtterance = null;

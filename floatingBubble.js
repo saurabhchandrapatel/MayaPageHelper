@@ -73,7 +73,7 @@ function openSidebar() {
   // });
   // Listen for messages from the sidebar to close it
   window.addEventListener("message", (event) => {
-    if (event.origin !== chrome.runtime.getURL("")) return; // or check specific origin
+    // if (event.origin !== chrome.runtime.getURL("")) return; // or check specific origin
     handleSidebarMessage(event);
   });
 

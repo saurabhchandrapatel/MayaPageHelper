@@ -130,16 +130,23 @@
     }
 
     .quick-reply-wrapper {
-      display: flex;
-      gap: 8px;
-      overflow-x: auto;
-      padding: 4px 0;
-      scrollbar-width: none; /* Firefox */
-    }
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scroll-behavior: smooth;
+        scrollbar-width: thin;
+        padding: 4px 0;
+      }
 
     .quick-reply-wrapper::-webkit-scrollbar {
-      display: none; /* Chrome, Safari, Edge */
+      height: 6px;
     }
+    .quick-reply-wrapper::-webkit-scrollbar-thumb {
+      background-color: rgba(0,0,0,0.15);
+      border-radius: 3px;
+    }
+     
 
     .quick-reply-btn {
       background: white;
@@ -277,6 +284,29 @@
       cursor: move;
       user-select: none;
     }
+
+    .scroll-btn {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background: rgba(255,255,255,0.8);
+        color: #333;
+        border-radius: 50%;
+        width: 26px;
+        height: 26px;
+        cursor: pointer;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        z-index: 2;
+        transition: background 0.2s;
+      }
+      .scroll-btn:hover { background: var(--ou-accent); color: white; }
+      #scrollLeftBtn { left: 4px; }
+      #scrollRightBtn { right: 4px; }
+
+
+      
+
   </style>
 </head>
 <body>
@@ -312,10 +342,16 @@
 
     <!-- QUICK REPLY CONTAINER -->
     <div id="quickReplyContainer">
+      
       <div class="quick-reply-wrapper">
         <!-- Quick reply buttons will be dynamically added here by your JS -->
       </div>
+      
     </div>
+    <!-- <button id="scrollLeftBtn" class="scroll-btn">◀</button>
+    <button id="scrollRightBtn" class="scroll-btn">▶</button>
+     -->
+
 
     <!-- INPUT AREA -->
     <div id="inputArea">
