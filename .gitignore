@@ -1,0 +1,8 @@
+# add node modules
+node_modules/
+# add build output
+dist/
+build/
+# add environment variables file
+
+package-lock.json

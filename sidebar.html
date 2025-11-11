@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Orange Upskill Assistant</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  
+  <style>
+    :root {
+      --ou-bg: rgba(255, 255, 255, 0.85);
+      --ou-blur: 18px;
+      --ou-border: rgba(255, 255, 255, 0.4);
+      --ou-text: #0f172a;
+      --ou-accent: #ffb300;
+      --ou-accent-dark: #cc8a00;
+      --ou-radius: 16px;
+      --ou-shadow: 0 6px 20px rgba(0,0,0,0.25);
+      --ou-font: 'Inter', system-ui, sans-serif;
+    }
+    body {
+      margin: 0;
+      font-family: var(--ou-font);
+      background: transparent;
+      color: var(--ou-text);
+      user-select: none;
+    }
+
+    /* --- SIDEBAR (Chat Container) --- */
+    #sidebar {
+      width: 400px;
+      height: 560px;
+      border-radius: var(--ou-radius);
+      box-shadow: var(--ou-shadow);
+      background: var(--ou-bg);
+      backdrop-filter: blur(var(--ou-blur));
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* --- HEADER --- */
+    #header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: linear-gradient(90deg, #ffb300, #ff8800);
+      color: #fff;
+      font-weight: 600;
+    }
+    .profile-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .profile-image {
+      width: 38px;
+      height: 38px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+    .user-details .name {
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .user-details .status {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+    .header-controls button {
+      background: transparent;
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      font-size: 16px;
+      margin-left: 8px;
+      transition: opacity 0.2s ease;
+    }
+    .header-controls button:hover {
+      opacity: 0.8;
+    }
+
+    /* --- CHAT CONTAINER --- */
+    #chatContainer {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      scroll-behavior: smooth;
+    }
+
+    .message {
+      max-width: 85%;
+      padding: 10px 14px;
+      border-radius: 14px;
+      line-height: 1.45;
+      font-size: 14px;
+      animation: fadeIn 0.2s ease-in;
+      word-wrap: break-word;
+    }
+    .message.bot {
+      background: #f4f4f7;
+      align-self: flex-start;
+    }
+    .message.user {
+      background: var(--ou-accent);
+      color: #fff;
+      align-self: flex-end;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* --- QUICK REPLY CONTAINER --- */
+    #quickReplyContainer {
+      padding: 8px 12px;
+      border-top: 1px solid rgba(0,0,0,0.08);
+      background: rgba(255,255,255,0.5);
+    }
+
+    .quick-reply-wrapper {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 4px 0;
+      scrollbar-width: none; /* Firefox */
+    }
+
+    .quick-reply-wrapper::-webkit-scrollbar {
+      display: none; /* Chrome, Safari, Edge */
+    }
+
+    .quick-reply-btn {
+      background: white;
+      border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 18px;
+      padding: 8px 14px;
+      font-size: 13px;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: var(--ou-font);
+      color: var(--ou-text);
+    }
+
+    .quick-reply-btn:hover {
+      background: var(--ou-accent);
+      color: white;
+      border-color: var(--ou-accent);
+    }
+
+    /* Dark mode support for quick replies */
+    @media (prefers-color-scheme: dark) {
+      #quickReplyContainer {
+        background: rgba(30, 34, 40, 0.5);
+      }
+      
+      .quick-reply-btn {
+        background: rgba(255,255,255,0.08);
+        border-color: rgba(255,255,255,0.1);
+        color: #e5e7eb;
+      }
+    }
+
+
+    /* --- INPUT AREA --- */
+    #inputArea {
+      border-top: 1px solid rgba(0,0,0,0.08);
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.7);
+      backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .input-container {
+      display: flex;
+      align-items: center;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      padding: 4px 8px;
+    }
+    .attachment-options {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      color: #777;
+    }
+    .attachment-btn {
+      background: transparent;
+      border: none;
+      color: #777;
+      font-size: 16px;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 8px;
+      transition: background 0.2s;
+    }
+    .attachment-btn:hover {
+      background: rgba(0,0,0,0.08);
+    }
+
+    textarea#userInput {
+      flex: 1;
+      border: none;
+      outline: none;
+      resize: none;
+      background: transparent;
+      font-family: var(--ou-font);
+      font-size: 14px;
+      padding: 6px;
+      color: var(--ou-text);
+    }
+
+    #sendBtn {
+      background: var(--ou-accent);
+      border: none;
+      border-radius: 10px;
+      color: white;
+      padding: 8px 10px;
+      font-size: 15px;
+      margin-left: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #sendBtn:hover {
+      background: var(--ou-accent-dark);
+    }
+
+    /* --- FOOTER --- */
+    .powered-by {
+      text-align: center;
+      font-size: 11px;
+      opacity: 0.6;
+      padding-bottom: 2px;
+      letter-spacing: 0.4px;
+    }
+
+    /* --- SCROLLBAR --- */
+    #chatContainer::-webkit-scrollbar {
+      width: 6px;
+    }
+    #chatContainer::-webkit-scrollbar-thumb {
+      background-color: rgba(0, 0, 0, 0.15);
+      border-radius: 3px;
+    }
+
+    /* --- DARK MODE --- */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --ou-bg: rgba(20, 24, 30, 0.9);
+        --ou-text: #e5e7eb;
+        --ou-border: rgba(255,255,255,0.1);
+        --ou-shadow: 0 8px 32px rgba(0,0,0,0.6);
+      }
+      #sidebar { color: #e5e7eb; }
+      .message.bot { background: rgba(255,255,255,0.08); }
+      .input-container { background: rgba(255,255,255,0.08); }
+      textarea#userInput { color: #e5e7eb; }
+    }
+
+
+    #header {
+      cursor: move;
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="sidebar">
+    <!-- HEADER -->
+    <div id="header">
+      <div class="profile-info">
+        <div class="profile-image">
+          <i class="fa-solid fa-robot"></i>
+        </div>
+        <div class="user-details">
+          <div class="name">Orange Upskill</div>
+          <div class="status">AI Learning Assistant</div>
+        </div>
+      </div>
+      <div class="header-controls">
+        <button id="settingsBtn" title="Settings">
+          <i class="fa-solid fa-gear"></i>
+        </button>
+        <button id="closeBtn" title="Close">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- CHAT BODY -->
+    <div id="chatContainer">
+      <div class="message bot">
+        👋 Hi there! I'm <b>Orange Upskill AI</b>.<br/>
+        Ask me anything about learning, quizzes, or productivity!
+      </div>
+    </div>
+
+    <!-- QUICK REPLY CONTAINER -->
+    <div id="quickReplyContainer">
+      <div class="quick-reply-wrapper">
+        <!-- Quick reply buttons will be dynamically added here by your JS -->
+      </div>
+    </div>
+
+    <!-- INPUT AREA -->
+    <div id="inputArea">
+      <div class="input-container">
+        <div class="attachment-options">
+          <button class="attachment-btn" title="Bot commands">
+            <i class="fa-solid fa-robot"></i>
+          </button>
+          <button class="attachment-btn" title="Attach file">
+            <i class="fa-solid fa-paperclip"></i>
+          </button>
+          <button class="attachment-btn" title="Add emoji">
+            <i class="fa-regular fa-face-smile"></i>
+          </button>
+        </div>
+
+        <textarea id="userInput" placeholder="Type a message..."></textarea>
+        <button id="sendBtn">
+          <i class="fa-solid fa-paper-plane"></i>
+        </button>
+      </div>
+
+      <div class="powered-by">
+        POWERED BY Orange Upskill
+      </div>
+    </div>
+  </div>
+
+
+  <script src="libs/marked.min.js"></script>
+  <script src="sidebar.js"></script>
+</body>
+</html>

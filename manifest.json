@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "Orange Upskill Assistant",
+  "version": "1.0",
+  "description": "Use your favorite AI (ChatGPT, Gemini, Ollama...) anywhere on the web.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "contextMenus"
+  ],
+  "host_permissions": ["https://*/*", "http://*/*"], 
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icons/icon128.png"
+  },
+  "options_page": "options.html",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["libs/marked.min.js", "floatingBubble.js", "content.js", "form-assistant.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+
+    }
+  ],
+  "web_accessible_resources": [
+    {
+        "resources": ["sidebar.html", "sidebar.css", "icons/icon128.png"],
+        "matches": ["<all_urls>"]
+    }
+    ],
+  "icons": {
+    "128": "icons/icon128.png"
+  }
+}
+
+
+  

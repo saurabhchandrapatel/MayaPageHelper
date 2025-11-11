@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Orange Upskill Assistant Config</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="container">
+    <h2>Orange Upskill Assistant</h2>
+    <div class="section">
+      <label for="aiProvider">AI Provider</label>
+      <select id="aiProvider">
+        <option value="openai">ChatGPT (OpenAI)</option>
+        <option value="gemini">Gemini (Google)</option>
+        <option value="ollama">Ollama (Local)</option>
+        <option value="custom">Custom</option>
+      </select>
+    </div>      
+    <div class="section">
+      <label for="apiKey">API Key</label>
+      <input type="password" id="apiKey" placeholder="Enter your API key" />
+    </div>
+    <div class="section">
+      <label for="actions">Features</label>
+      <div class="checkbox-group">
+        <label><input type="checkbox" id="summary" /> Summarize Page</label>
+        <label><input type="checkbox" id="quiz" /> Generate Quiz</label>
+        <label><input type="checkbox" id="voice" /> Voice Output</label>
+      </div>
+    </div>
+    <button id="saveConfig">Save Configuration</button>
+    <script src="popup.js"></script>
+</body>
+</html>
