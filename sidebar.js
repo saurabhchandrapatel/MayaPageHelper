@@ -51,21 +51,21 @@ quickReplyBtns.forEach(btn => {
   });
 });
 
-// function appendMessage(text, sender) {
-//   const div = document.createElement("div");
-//   div.className = `message ${sender}`;
-//   div.innerHTML = sender === "bot" ? marked.parse(text) : text; // render Markdown for bot
-//   chatContainer.appendChild(div);
-//   chatContainer.scrollTop = chatContainer.scrollHeight;
-// }
-
-function appendMessage(text, sender){
-  const div=document.createElement("div");
-  div.className=`message ${sender}`;
-  div.textContent=text; // safe default (see note above for Markdown)
+function appendMessage(text, sender) {
+  const div = document.createElement("div");
+  div.className = `message ${sender}`;
+  div.innerHTML = sender === "bot" ? marked.parse(text) : text; // render Markdown for bot
   chatContainer.appendChild(div);
-  chatContainer.scrollTop=chatContainer.scrollHeight;
+  chatContainer.scrollTop = chatContainer.scrollHeight;
 }
+
+// function appendMessage(text, sender){
+//   const div=document.createElement("div");
+//   div.className=`message ${sender}`;
+//   div.textContent=text; // safe default (see note above for Markdown)
+//   chatContainer.appendChild(div);
+//   chatContainer.scrollTop=chatContainer.scrollHeight;
+// }
 
 let typingIndicator;
 
@@ -386,16 +386,16 @@ function showQuickReplies(options) {
 }
 
 
-const quickWrapper = document.querySelector('.quick-reply-wrapper');
-const scrollLeftBtn = document.getElementById('scrollLeftBtn');
-const scrollRightBtn = document.getElementById('scrollRightBtn');
+// const quickWrapper = document.querySelector('.quick-reply-wrapper');
+// const scrollLeftBtn = document.getElementById('scrollLeftBtn');
+// const scrollRightBtn = document.getElementById('scrollRightBtn');
 
-scrollLeftBtn.onclick = () => {
-  quickWrapper.scrollBy({ left: -150, behavior: 'smooth' });
-};
-scrollRightBtn.onclick = () => {
-  quickWrapper.scrollBy({ left: 150, behavior: 'smooth' });
-};
+// scrollLeftBtn.onclick = () => {
+//   quickWrapper.scrollBy({ left: -150, behavior: 'smooth' });
+// };
+// scrollRightBtn.onclick = () => {
+//   quickWrapper.scrollBy({ left: 150, behavior: 'smooth' });
+// };
 
 window.addEventListener('DOMContentLoaded', () => {
   generateSuggestedQuestions();

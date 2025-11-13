@@ -141,7 +141,6 @@
 
   // === Result Bubble + Voice ===
   function showResultBubble(result, action = "general") {
-    const {DOMPurify} = required("dompurify")
     const { shadow } = ensureUIRoot();
     removeBubble();
 
@@ -246,6 +245,8 @@
   // === Utils ===
   function renderMarkdownSafely(md = "") {
     return escapeHTML(md).replace(/\n/g, "<br>");
+    // return marked.parse(md);
+    // return DOMPurify.sanitize(marked.parse(md));
   }
   function escapeHTML(s) { return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   function stripHTML(s) { const d = document.createElement("div"); d.innerHTML = s; return d.textContent || ""; }
