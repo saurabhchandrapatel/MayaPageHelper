@@ -4,16 +4,19 @@ function hash(str){let h=0;for(let i=0;i<str.length;i++)h=((h<<5)-h+str.charCode
 function getCacheKey(prompt, provider){ return `${provider}:${hash(prompt)}:${prompt.length}`; }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log("[DEBUG] Background received message:", request);
   
   if (request.type === "RUN_AI_ACTION") {
+    // Validate input
+    if (!request.action || !request.text || request.text.length > 50000) {
+      sendResponse({ result: '❌ Invalid input provided.' });
+      return;
+    }
+    
     handleAction(request.action, request.text)
       .then(result => {
-        console.log("[DEBUG] Result from AI:", result);
         sendResponse({ result });
       })
       .catch(err => {
-        console.error("[DEBUG] Error in handleAction:", err);
         sendResponse({ result: `❌ Error: ${err.message}` });
       });
     return true; // keep channel open for async
@@ -22,11 +25,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === "GET_PAGE_CONTEXT") {
     generateReplySuggestions(request.pageContent)
       .then(suggestions => {
-        console.log("[DEBUG] Generated reply suggestions:", suggestions);
         sendResponse({ suggestions });
       })
       .catch(err => {
-        console.error("[DEBUG] Error generating suggestions:", err);
         sendResponse({ suggestions: [], error: err.message });
       });
     return true; // keep channel open for async
@@ -35,17 +36,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 async function handleAction(action, text) {
-  console.log("[DEBUG] Handling action in background:", action);
 
-  // Load user configuration from storage
+  // Load user configuration from storage (use local for security)
   const storage = await new Promise(resolve =>
-    chrome.storage.sync.get(["provider", "apiKey", "features"], resolve)
+    chrome.storage.local.get(["provider", "apiKey", "features"], resolve)
   );
   const provider = storage.provider || "gemini";
   const apiKey = storage.apiKey || "";
   const features = storage.features || {};
 
-  console.log("[DEBUG] Storage loaded:", storage);
+
 
   // Optional: check if feature enabled
   if (action === "summarize" && !features.summary) return "❌ Summary feature not enabled.";
@@ -74,14 +74,13 @@ async function handleAction(action, text) {
       prompt = text;
   }
 
-  console.log("[DEBUG] Preparing to call LLM with prompt");
+
   
   try {
     // Use the callLLM function with appropriate parameters
     const result = await callLLM(provider, apiKey, prompt, 0.7, 500);
     return result;
   } catch (e) {
-    console.error("[DEBUG] Error in handleAction:", e);
     return `❌ ${e.message}`;
   }
 }
@@ -96,24 +95,26 @@ async function handleAction(action, text) {
  * Generic function to call LLM APIs with rate limiting and caching
  */
 async function callLLM(provider, apiKey, prompt, temperature = 0.7, maxTokens = 500) {
-  console.log("[DEBUG] Calling LLM:", provider, "with prompt length:", prompt.length);
 
   // Validate API key
-  if (!apiKey) {
-    throw new Error(`No API key provided for ${provider}. Please add your API key in the extension settings.`);
+  if (!apiKey || typeof apiKey !== 'string' || apiKey.length < 10) {
+    throw new Error(`Invalid API key for ${provider}. Please check your settings.`);
+  }
+  
+  // Validate prompt
+  if (!prompt || typeof prompt !== 'string') {
+    throw new Error('Invalid input provided.');
   }
 
   // Check input size
-  if (prompt.length > 100000) {
-    console.warn("[DEBUG] Very large prompt detected, truncating...");
-    prompt = prompt.substring(0, 100000) + "... [content truncated due to length]";
+  if (prompt.length > 50000) {
+    prompt = prompt.substring(0, 50000) + "... [content truncated]";
   }
 
   try {
     // Check cache first
     const cachedResponse = getCachedResponse(prompt, provider);
     if (cachedResponse) {
-      console.log("[DEBUG] Cache hit for", provider);
       return cachedResponse;
     }
 
@@ -178,7 +179,6 @@ async function callLLM(provider, apiKey, prompt, temperature = 0.7, maxTokens = 
         }
         
         const data = await res.json();
-        console.log("[DEBUG] OpenAI API response:", data);
         result = data?.choices?.[0]?.message?.content || "No response from OpenAI";
       } catch (e) {
         clearTimeout(timeoutId);
@@ -195,7 +195,6 @@ async function callLLM(provider, apiKey, prompt, temperature = 0.7, maxTokens = 
     return result;
 
   } catch (e) {
-    console.error("[DEBUG] Error calling LLM:", e);
     throw new Error(`Error calling ${provider}: ${e.message}`);
   }
 }
@@ -205,11 +204,10 @@ async function callLLM(provider, apiKey, prompt, temperature = 0.7, maxTokens = 
  * Generate quick reply suggestions based on page content
  */
 async function generateReplySuggestions(pageContent) {
-  console.log("[DEBUG] Generating reply suggestions from page content");
   
   // Load user configuration
   const storage = await new Promise(resolve =>
-    chrome.storage.sync.get(["provider", "apiKey", "features"], resolve)
+    chrome.storage.local.get(["provider", "apiKey", "features"], resolve)
   );
   const provider = storage.provider || "gemini";
   const apiKey = storage.apiKey || "";
@@ -237,7 +235,6 @@ ${pageContent.substring(0, 5000)}
       }
       return [];
     } catch (parseError) {
-      console.error("[DEBUG] Failed to parse suggestions as JSON:", parseError);
       // Fallback: try to extract suggestions line by line if JSON parsing fails
       return result
         .split('\n')
@@ -247,7 +244,6 @@ ${pageContent.substring(0, 5000)}
         .slice(0, 5);
     }
   } catch (e) {
-    console.error("[DEBUG] Error generating suggestions:", e);
     throw new Error(`Failed to generate suggestions: ${e.message}`);
   }
 }
@@ -260,7 +256,6 @@ async function fetchWithRetry(url, options, maxRetries = 3) {
     try {
       return await fetch(url, options);
     } catch (err) {
-      console.log(`Attempt ${attempt + 1} failed:`, err);
       lastError = err;
       
       // Only retry on network errors, not on 4xx responses

@@ -96,7 +96,12 @@
       selectedText = "";
       return;
     }
-    selectedText = sel.toString().trim();
+    const text = sel.toString().trim();
+    if (text.length > 10000) {
+      removeToolbar();
+      return;
+    }
+    selectedText = text;
     const rect = sel.getRangeAt(0).getBoundingClientRect();
     showToolbar(rect);
   }
@@ -146,25 +151,39 @@
 
     const bubble = document.createElement("section");
     bubble.className = "ou-bubble";
-    bubble.innerHTML = `
-      <header class="ou-bubble__header">
-        <span>Orange Upskill AI Assistant</span>
-        <button class="ou-iconbtn" data-cmd="close">✖</button>
-      </header>
-      <div class="ou-bubble__content">${renderMarkdownSafely(result)}</div>
-      <footer class="ou-bubble__footer">Powered by Orange Upskill AI</footer>
-    `;
+    const header = document.createElement('header');
+    header.className = 'ou-bubble__header';
+    header.innerHTML = '<span>Orange Upskill AI Assistant</span><button class="ou-iconbtn" data-cmd="close">✖</button>';
+    
+    const content = document.createElement('div');
+    content.className = 'ou-bubble__content';
+    content.innerHTML = sanitizeHTML(result);
+    
+    const footer = document.createElement('footer');
+    footer.className = 'ou-bubble__footer';
+    footer.textContent = 'Powered by Orange Upskill AI';
+    
+    bubble.appendChild(header);
+    bubble.appendChild(content);
+    bubble.appendChild(footer);
 
     // Voice Control Buttons (only for "voice" action)
     if (action === "voice") {
       const vc = document.createElement("div");
       vc.className = "ou-voice-controls";
-      vc.innerHTML = `
-        <button class="ou-voice-btn" data-vc="pause">⏸ Pause</button>
-        <button class="ou-voice-btn" data-vc="resume">▶️ Resume</button>
-        <button class="ou-voice-btn" data-vc="mute">🔇 Mute</button>
-        <button class="ou-voice-btn" data-vc="stop">⏹ Stop</button>
-      `;
+      const buttons = [
+        { cmd: 'pause', text: '⏸ Pause' },
+        { cmd: 'resume', text: '▶️ Resume' },
+        { cmd: 'mute', text: '🔇 Mute' },
+        { cmd: 'stop', text: '⏹ Stop' }
+      ];
+      buttons.forEach(({cmd, text}) => {
+        const btn = document.createElement('button');
+        btn.className = 'ou-voice-btn';
+        btn.dataset.vc = cmd;
+        btn.textContent = text;
+        vc.appendChild(btn);
+      });
       bubble.appendChild(vc);
       startVoice(stripHTML(result), vc);
     }
@@ -227,7 +246,10 @@
   // === AI Action ===
   function handleAction(action) {
     removeToolbar();
-    if (!selectedText) return;
+    if (!selectedText || selectedText.length > 10000) {
+      showResultBubble('❌ Selected text is too long or invalid.');
+      return;
+    }
     showOverlay();
     try {
       chrome.runtime.sendMessage({ type: "RUN_AI_ACTION", action, text: selectedText }, (res) => {
@@ -243,13 +265,18 @@
   }
 
   // === Utils ===
-  function renderMarkdownSafely(md = "") {
-    return escapeHTML(md).replace(/\n/g, "<br>");
-    // return marked.parse(md);
-    // return DOMPurify.sanitize(marked.parse(md));
+  function sanitizeHTML(text = "") {
+    if (typeof text !== 'string') return '';
+    return escapeHTML(text).replace(/\n/g, "<br>");
   }
-  function escapeHTML(s) { return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-  function stripHTML(s) { const d = document.createElement("div"); d.innerHTML = s; return d.textContent || ""; }
+  function escapeHTML(s) { 
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); 
+  }
+  function stripHTML(s) { 
+    const div = document.createElement("div"); 
+    div.textContent = s; 
+    return div.textContent || ""; 
+  }
 
   // ESC closes everything
   document.addEventListener("keydown", (e) => {

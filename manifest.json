@@ -2,18 +2,19 @@
   "manifest_version": 3,
   "name": "Orange Upskill Assistant",
   "short_name": "AI Assistant",
-  "version": "1.0",
+  "version": "1.0.1",
   "minimum_chrome_version": "88",
-  "description": "Use your favorite AI (ChatGPT, Gemini, Ollama...) anywhere on the web.",
+  "description": "AI-powered text assistant for summarizing, explaining, and creating quizzes from selected text on any webpage.",
+  "homepage_url": "https://your-domain.com",
   "permissions": [
     "storage",
-    "scripting",
     "activeTab",
-    "tabs",
-    "clipboardWrite",
-    "clipboardRead"
+    "clipboardWrite"
   ],
-  "host_permissions": ["https://*/*", "http://*/*"], 
+  "host_permissions": ["<all_urls>"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self';"
+  }, 
   "background": {
     "service_worker": "background.js"
   },
@@ -46,8 +47,7 @@
     "16": "icons/icon128.png",
     "48": "icons/icon128.png",
     "128": "icons/icon128.png"
-  }
+  },
+  "author": "Orange Upskill",
+  "privacy_policy": "https://your-domain.com/privacy-policy"
 }
-
-
-  

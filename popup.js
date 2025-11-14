@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const saveBtn = document.getElementById("saveConfig");
 
   // Load saved configuration
-  chrome.storage.sync.get(
+  chrome.storage.local.get(
     ["provider", "apiKey", "features"],
     ({ provider, apiKey: key, features }) => {
       if (provider) aiProvider.value = provider;
@@ -31,7 +31,13 @@ document.addEventListener("DOMContentLoaded", () => {
       voice: voiceCheckbox.checked
     };
 
-    chrome.storage.sync.set({ provider, apiKey: key, features }, () => {
+    // Validate API key
+    if (key && key.length < 10) {
+      alert('❌ API key appears to be too short. Please check your key.');
+      return;
+    }
+    
+    chrome.storage.local.set({ provider, apiKey: key, features }, () => {
       alert("✅ Configuration saved!");
     });
   });
