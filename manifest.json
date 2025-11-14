@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "Orange Upskill Assistant",
-  "short_name": "AI Assistant",
+  "name": "Maya Page Helper",
+  "short_name": "Maya Helper",
   "version": "1.0.1",
   "minimum_chrome_version": "88",
   "description": "AI-powered text assistant for summarizing, explaining, and creating quizzes from selected text on any webpage.",
-  "homepage_url": "https://your-domain.com",
+
   "permissions": [
     "storage",
     "activeTab",
@@ -41,13 +41,13 @@
         "resources": ["sidebar.html", "sidebar.css", "icons/icon128.png"],
         "matches": ["<all_urls>"]
     }
-    ],
+  ],
   
   "icons": {
     "16": "icons/icon128.png",
     "48": "icons/icon128.png",
     "128": "icons/icon128.png"
   },
-  "author": "Orange Upskill",
-  "privacy_policy": "https://your-domain.com/privacy-policy"
+  "author": "Maya Page Helper"
+
 }

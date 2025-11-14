@@ -1,13 +1,13 @@
 # Chrome Web Store Listing
 
 ## Title
-Orange Upskill Assistant
+Maya Page Helper
 
 ## Summary
 AI-powered text assistant for summarizing, explaining, and creating quizzes from selected text on any webpage.
 
 ## Description
-Transform your web browsing into a learning experience with Orange Upskill Assistant. This AI-powered extension helps you understand and learn from any text on the web.
+Transform your web browsing into a learning experience with Maya Page Helper. This AI-powered extension helps you understand and learn from any text on the web.
 
 **Key Features:**
 • 📘 **Smart Summaries** - Get clear, concise summaries of complex text
@@ -23,16 +23,18 @@ Transform your web browsing into a learning experience with Orange Upskill Assis
 3. Get instant, helpful results in a clean interface
 
 **Privacy & Security:**
-• Your API keys are stored locally on your device
-• No data is collected or stored by our extension
-• Works with your choice of AI provider (OpenAI, Google Gemini)
+• 100% open source - verify the code yourself
+• Zero tracking or data collection
+• Your API keys stored locally only
+• Works with any AI provider (OpenAI, Google Gemini, local models)
+• No external servers or domains required
 
 **Perfect for:**
 • Students researching online
 • Professionals reading technical documents
 • Anyone wanting to learn more effectively from web content
 
-Requires your own API key from OpenAI or Google to function.
+Requires your own API key from OpenAI, Google, or local AI setup. Completely privacy-focused with no tracking.
 
 ## Category
 Productivity

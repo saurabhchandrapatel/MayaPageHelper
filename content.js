@@ -153,7 +153,7 @@
     bubble.className = "ou-bubble";
     const header = document.createElement('header');
     header.className = 'ou-bubble__header';
-    header.innerHTML = '<span>Orange Upskill AI Assistant</span><button class="ou-iconbtn" data-cmd="close">✖</button>';
+    header.innerHTML = '<span>Maya Page Helper</span><button class="ou-iconbtn" data-cmd="close">✖</button>';
     
     const content = document.createElement('div');
     content.className = 'ou-bubble__content';
@@ -161,7 +161,7 @@
     
     const footer = document.createElement('footer');
     footer.className = 'ou-bubble__footer';
-    footer.textContent = 'Powered by Orange Upskill AI';
+    footer.textContent = 'Powered by Maya Page Helper';
     
     bubble.appendChild(header);
     bubble.appendChild(content);
